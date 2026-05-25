@@ -7,11 +7,13 @@
 #   Policies: UserAdminsWriteList, UserAdminsDenyList, UserAdminsSelfServiceIAM
 #
 # Attaches the right policies to each group. Detaches legacy policies if found.
-# Optionally creates IAM users (md-{identifier}-{role}) and prints CLI access keys.
+# Optionally creates IAM users (md-{identifier}-{account}-{role}) and prints CLI access keys.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=user-management-lib.sh
+source "${SCRIPT_DIR}/user-management-lib.sh"
 ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
 echo "Caller:"
 aws sts get-caller-identity --output table
@@ -136,238 +138,6 @@ detach() {
   fi
 }
 
-read_tty_char() {
-  local prompt="$1"
-  local old_stty ans=""
-
-  if [ -r /dev/tty ]; then
-    old_stty=$(stty -g </dev/tty 2>/dev/null) || old_stty=""
-    stty sane icrnl </dev/tty 2>/dev/null || true
-    printf "%s" "$prompt" >/dev/tty
-    IFS= read -r -n 1 ans </dev/tty 2>/dev/null || ans=""
-    printf "\n" >/dev/tty
-    if [ -n "$old_stty" ]; then
-      stty "$old_stty" </dev/tty 2>/dev/null || stty sane </dev/tty 2>/dev/null || true
-    fi
-  elif [ -t 0 ]; then
-    stty sane icrnl 2>/dev/null || true
-    IFS= read -r -n 1 -p "$prompt" ans || ans=""
-    echo ""
-  fi
-
-  ans="${ans//$'\r'/}"
-  ans="${ans//$'\n'/}"
-  printf '%s' "$ans"
-}
-
-read_tty_line() {
-  local prompt="$1"
-  local old_stty line=""
-
-  if [ -r /dev/tty ]; then
-    old_stty=$(stty -g </dev/tty 2>/dev/null) || old_stty=""
-    stty sane icrnl </dev/tty 2>/dev/null || true
-    printf "%s" "$prompt" >/dev/tty
-    IFS= read -r line </dev/tty 2>/dev/null || line=""
-    if [ -n "$old_stty" ]; then
-      stty "$old_stty" </dev/tty 2>/dev/null || stty sane </dev/tty 2>/dev/null || true
-    fi
-  elif [ -t 0 ]; then
-    stty sane icrnl 2>/dev/null || true
-    IFS= read -r -p "$prompt" line || line=""
-  fi
-
-  line="${line//$'\r'/}"
-  printf '%s' "$line"
-}
-
-prompt_yes_no() {
-  local prompt="$1"
-  local default_no="${2:-yes}"
-  local ans
-
-  if [ "$default_no" = "yes" ]; then
-    ans="$(read_tty_char "${prompt} [y/N]: ")"
-    case "$ans" in
-      y|Y) return 0 ;;
-      *)   return 1 ;;
-    esac
-  fi
-
-  ans="$(read_tty_char "${prompt} [Y/n]: ")"
-  case "$ans" in
-    n|N) return 1 ;;
-    *)   return 0 ;;
-  esac
-}
-
-role_to_group() {
-  case "$1" in
-    read-only)  printf '%s' "acl-read-only" ;;
-    iam-admin)  printf '%s' "acl-iam-full-access" ;;
-    power-user) printf '%s' "acl-power-users" ;;
-    *)          return 1 ;;
-  esac
-}
-
-prompt_user_role() {
-  local choice role
-
-  while true; do
-    echo "  Role (username will be md-{identifier}-{role}):" >&2
-    echo "    1) read-only   → acl-read-only" >&2
-    echo "    2) iam-admin   → acl-iam-full-access" >&2
-    echo "    3) power-user  → acl-power-users" >&2
-    choice="$(read_tty_line "  Choice [1-3]: ")"
-    case "$choice" in
-      1|read-only)  role="read-only"; break ;;
-      2|iam-admin)  role="iam-admin"; break ;;
-      3|power-user) role="power-user"; break ;;
-      *)
-        echo "  Invalid choice — enter 1, 2, 3, or the role name." >&2
-        ;;
-    esac
-  done
-
-  printf '%s' "$role"
-}
-
-normalize_identifier() {
-  local raw="$1"
-  local role="$2"
-  local identifier="$raw"
-  local known_role
-
-  identifier="$(printf '%s' "$identifier" | tr '[:upper:]' '[:lower:]')"
-  identifier="${identifier// /-}"
-
-  if [[ "$identifier" == md-* ]]; then
-    identifier="${identifier#md-}"
-  fi
-
-  if [[ "$identifier" == *-"${role}" ]]; then
-    identifier="${identifier%-${role}}"
-  else
-    for known_role in read-only iam-admin power-user; do
-      if [[ "$identifier" == *-"${known_role}" ]]; then
-        echo "  Note: input looks like md-{identifier}-${known_role}; using identifier \"${identifier%-${known_role}}\"." >&2
-        identifier="${identifier%-${known_role}}"
-        break
-      fi
-    done
-  fi
-
-  printf '%s' "$identifier"
-}
-
-prompt_user_identifier() {
-  local role="$1"
-  local raw identifier lower_raw
-
-  while true; do
-    raw="$(read_tty_line "  Identifier (e.g. declan, or full md-declan-${role}): ")"
-    lower_raw="$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]')"
-    lower_raw="${lower_raw// /-}"
-    identifier="$(normalize_identifier "$raw" "$role")"
-
-    if [[ "$identifier" =~ ^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$ ]]; then
-      if [ "$lower_raw" != "$identifier" ]; then
-        echo "  → parsed identifier: ${identifier}" >&2
-      fi
-      printf '%s' "$identifier"
-      return 0
-    fi
-
-    echo "  Invalid identifier — use lowercase letters, numbers, and hyphens." >&2
-    echo "  Tip: enter just the short name (e.g. declan), not the full username." >&2
-  done
-}
-
-ensure_user() {
-  local username="$1"
-
-  if aws iam get-user --user-name "$username" &>/dev/null; then
-    echo "  User exists: ${username}"
-  else
-    echo "  Create user: ${username}"
-    aws iam create-user --user-name "$username" --path / >/dev/null
-  fi
-}
-
-ensure_user_in_group() {
-  local username="$1"
-  local group="$2"
-
-  if aws iam get-group --group-name "$group" \
-    --query "Users[?UserName=='${username}'].UserName" --output text | grep -q .; then
-    echo "  Already in group: ${group}"
-  else
-    echo "  Add to group: ${group}"
-    aws iam add-user-to-group --user-name "$username" --group-name "$group"
-  fi
-}
-
-create_cli_access_key() {
-  local username="$1"
-  local key_count access_key_id secret_access_key
-
-  key_count="$(aws iam list-access-keys --user-name "$username" \
-    --query 'length(AccessKeyMetadata)' --output text)"
-  if [ "$key_count" -ge 2 ]; then
-    echo "  WARNING: ${username} already has 2 access keys (AWS max)."
-    echo "  Delete an existing key before creating a new one."
-    return 1
-  fi
-
-  read -r access_key_id secret_access_key < <(
-    aws iam create-access-key --user-name "$username" \
-      --query 'AccessKey.[AccessKeyId,SecretAccessKey]' --output text
-  )
-
-  echo ""
-  echo "  CLI credentials for ${username} (secret shown once — copy now):"
-  echo "  ────────────────────────────────────────────────────────────────"
-  echo "  AWS_ACCESS_KEY_ID=${access_key_id}"
-  echo "  AWS_SECRET_ACCESS_KEY=${secret_access_key}"
-  echo ""
-  echo "  aws configure set aws_access_key_id ${access_key_id} --profile ${username}"
-  echo "  aws configure set aws_secret_access_key ${secret_access_key} --profile ${username}"
-  echo "  aws configure set region us-east-1 --profile ${username}"
-  echo "  ────────────────────────────────────────────────────────────────"
-  echo ""
-}
-
-create_users_interactive() {
-  local role identifier username group
-
-  if ! [ -r /dev/tty ] && ! [ -t 0 ]; then
-    echo "7. Skipping user creation (no TTY)."
-    echo "   Run interactively to create users and access keys."
-    return 0
-  fi
-
-  echo "7. Create IAM users (optional)"
-  echo ""
-
-  while prompt_yes_no "  Create another user?"; do
-    echo ""
-    role="$(prompt_user_role)"
-    identifier="$(prompt_user_identifier "$role")"
-    username="md-${identifier}-${role}"
-    group="$(role_to_group "$role")"
-
-    echo ""
-    echo "  → user: ${username}"
-    echo "  → group: ${group}"
-    echo ""
-
-    ensure_user "$username"
-    ensure_user_in_group "$username" "$group"
-    create_cli_access_key "$username" || true
-    echo ""
-  done
-}
-
 # ------------------------------------------------------------------------
 # 1. Groups
 # ------------------------------------------------------------------------
@@ -468,6 +238,13 @@ done
 
 echo ""
 
-create_users_interactive
+echo "7. Create IAM users (optional)"
+echo ""
+if [ -r /dev/tty ] || [ -t 0 ]; then
+  user_mgmt_create_users_interactive || true
+else
+  echo "  Skipping user creation (no TTY)."
+  echo "  Run ./aws-iam/manage-users.sh to add users later."
+fi
 
 echo "Done."
