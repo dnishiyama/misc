@@ -1,0 +1,6 @@
+.env
+node_modules
+.mypy_cache
+sent-emails
+*.db
+*.xlsx

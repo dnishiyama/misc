@@ -1,0 +1,11 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "StsFederation",
+      "Effect": "Allow",
+      "Action": ["sts:GetFederationToken", "sts:GetCallerIdentity"],
+      "Resource": "*"
+    }
+  ]
+}

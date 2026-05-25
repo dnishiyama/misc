@@ -1,0 +1,29 @@
+{
+  "name": "misc",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "check-db-activity": "ts-node check-db-activity.ts",
+    "delete-drafts": "ts-node delete-gmail-drafts.ts",
+    "export-db": "ts-node export-db-to-excel.ts",
+    "fetch-emails": "ts-node fetch-sent-emails.ts",
+    "generate-email-prompt": "ts-node generate-email-prompt.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@sendgrid/mail": "^7.7.0",
+    "@types/pg": "^8.11.10",
+    "axios": "^1.6.0",
+    "dotenv": "^16.0.3",
+    "exceljs": "^4.4.0",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/node": "^18.14.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.2"
+  }
+}

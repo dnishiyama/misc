@@ -1,0 +1,117 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "WriteComputeAndNetwork",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:*",
+        "elasticloadbalancing:*",
+        "autoscaling:*",
+        "application-autoscaling:*",
+        "lambda:*",
+        "ecs:*",
+        "ecr:*",
+        "elasticfilesystem:*",
+        "route53:*",
+        "route53domains:*",
+        "cloudfront:*",
+        "apigateway:*",
+        "servicediscovery:*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "WriteDataAndStorage",
+      "Effect": "Allow",
+      "Action": ["s3:*", "rds:*", "pi:*", "dynamodb:*", "backup:*"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "WriteDeploymentAndOps",
+      "Effect": "Allow",
+      "Action": [
+        "cloudformation:*",
+        "cloudwatch:*",
+        "logs:*",
+        "events:*",
+        "scheduler:*",
+        "ssm:*",
+        "cloudtrail:*",
+        "xray:*",
+        "states:*",
+        "cloudshell:*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "WriteSecurityAndMessaging",
+      "Effect": "Allow",
+      "Action": [
+        "acm:*",
+        "secretsmanager:*",
+        "kms:*",
+        "sns:*",
+        "sqs:*",
+        "ses:*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "WriteResourceOrganization",
+      "Effect": "Allow",
+      "Action": ["resource-groups:*", "tag:*", "ram:*"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "SupportAndHealth",
+      "Effect": "Allow",
+      "Action": [
+        "support:*",
+        "supportplans:Get*",
+        "supportplans:List*",
+        "health:*",
+        "trustedadvisor:*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "Sts",
+      "Effect": "Allow",
+      "Action": [
+        "sts:GetCallerIdentity",
+        "sts:GetFederationToken",
+        "sts:GetSessionToken"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "IamPassRoleForServices",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "arn:aws:iam::*:role/*",
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": [
+            "ec2.amazonaws.com",
+            "lambda.amazonaws.com",
+            "ecs.amazonaws.com",
+            "ecs-tasks.amazonaws.com",
+            "elasticloadbalancing.amazonaws.com",
+            "events.amazonaws.com",
+            "apigateway.amazonaws.com",
+            "rds.amazonaws.com",
+            "backup.amazonaws.com",
+            "cloudformation.amazonaws.com"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "ServiceLinkedRoles",
+      "Effect": "Allow",
+      "Action": ["iam:CreateServiceLinkedRole", "iam:DeleteServiceLinkedRole"],
+      "Resource": "*"
+    }
+  ]
+}

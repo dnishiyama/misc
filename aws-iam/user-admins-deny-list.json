@@ -1,0 +1,175 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyAIServices",
+      "Effect": "Deny",
+      "Action": [
+        "bedrock:*",
+        "sagemaker:*",
+        "comprehend:*",
+        "comprehendmedical:*",
+        "rekognition:*",
+        "textract:*",
+        "personalize:*",
+        "forecast:*",
+        "lex:*",
+        "polly:*",
+        "translate:*",
+        "transcribe:*",
+        "kendra:*",
+        "q:*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyOrgAndAccountWrites",
+      "Effect": "Deny",
+      "Action": [
+        "organizations:*",
+        "account:CloseAccount",
+        "account:DeleteAlternateContact",
+        "account:PutAlternateContact",
+        "account:PutChallengeQuestions",
+        "account:EnableRegion",
+        "account:DisableRegion",
+        "account:PutAccountName"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyBillingMutations",
+      "Effect": "Deny",
+      "Action": [
+        "aws-portal:Modify*",
+        "billing:Update*",
+        "billing:Put*",
+        "billing:Delete*",
+        "budgets:Modify*",
+        "budgets:Create*",
+        "budgets:Delete*",
+        "savingsplans:Create*",
+        "savingsplans:Delete*",
+        "supportplans:Create*",
+        "supportplans:Delete*",
+        "purchase-orders:Modify*",
+        "purchase-orders:Create*",
+        "cur:Put*",
+        "cur:Delete*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyCloudTrailTampering",
+      "Effect": "Deny",
+      "Action": [
+        "cloudtrail:StopLogging",
+        "cloudtrail:DeleteTrail",
+        "cloudtrail:UpdateTrail",
+        "cloudtrail:PutEventSelectors",
+        "cloudtrail:DeleteEventDataStore"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyExpensiveServices",
+      "Effect": "Deny",
+      "Action": [
+        "airflow:CreateEnvironment",
+        "airflow:UpdateEnvironment",
+        "mwaa:*",
+        "transfer:CreateServer",
+        "transfer:UpdateServer",
+        "transfer:StartServer",
+        "shield:CreateSubscription",
+        "shield:CreateProtection",
+        "shield:CreateProtectionGroup"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyKMSDestruction",
+      "Effect": "Deny",
+      "Action": [
+        "kms:ScheduleKeyDeletion",
+        "kms:DisableKey",
+        "kms:DisableKeyRotation"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyNeptuneViaRds",
+      "Effect": "Deny",
+      "Action": [
+        "rds:CreateDBCluster",
+        "rds:CreateDBInstance",
+        "rds:ModifyDBCluster",
+        "rds:ModifyDBInstance",
+        "rds:RestoreDBClusterFromSnapshot",
+        "rds:RestoreDBInstanceFromDBSnapshot"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "rds:DatabaseEngine": "neptune"
+        }
+      }
+    },
+    {
+      "Sid": "DenyExpensiveGpuEc2",
+      "Effect": "Deny",
+      "Action": [
+        "ec2:RunInstances",
+        "ec2:RequestSpotInstances",
+        "ec2:RequestSpotFleet",
+        "ec2:ModifyInstanceAttribute"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringLike": {
+          "ec2:InstanceType": [
+            "p2.*",
+            "p3.*",
+            "p4d.*",
+            "p4de.*",
+            "p5.*",
+            "p5d.*",
+            "p5e.*",
+            "p5en.*",
+            "p6*",
+            "g3.*",
+            "g3s.*",
+            "g4dn.*",
+            "g4ad.*",
+            "g5.*",
+            "g5g.*",
+            "g6.*",
+            "g6e.*",
+            "g6f.*",
+            "inf1.*",
+            "inf2.*",
+            "trn1.*",
+            "trn1n.*",
+            "trn2.*",
+            "trn2a.*",
+            "trn2i.*",
+            "dl1.*",
+            "dl2q.*",
+            "f1.*",
+            "f2.*",
+            "vt1.*",
+            "hpc6id.*",
+            "u-12tb1.metal",
+            "u-18tb1.metal",
+            "u-24tb1.metal",
+            "u-6tb1.56xlarge",
+            "u-9tb1.112xlarge",
+            "x2iedn.*",
+            "x2idn.*",
+            "x2iezn.*"
+          ]
+        }
+      }
+    }
+  ]
+}
